@@ -1,5 +1,7 @@
 import Game from '@/components/Game';
 
+const TITLE = 'stargate Memory';
+
 export default function Home() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-4xl flex-col px-4 py-8 md:py-14">
@@ -8,9 +10,31 @@ export default function Home() {
           <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.8)]"></span>
           memory match
         </div>
-        <h1 className="glow-text text-5xl font-semibold tracking-tight md:text-6xl">
-          Stargaze
-        </h1>
+
+        <div className="stargate-title">
+          <span className="stargate-portal" aria-hidden="true">
+            <span className="ring ring-1"></span>
+            <span className="ring ring-2"></span>
+            <span className="ring ring-3"></span>
+            <span className="ring-core"></span>
+          </span>
+
+          <h1 className="glow-text relative text-5xl font-semibold tracking-tight md:text-6xl">
+            <span className="sr-only">{TITLE}</span>
+            <span aria-hidden="true" className="inline-flex">
+              {Array.from(TITLE).map((ch, i) => (
+                <span
+                  key={i}
+                  className="title-letter"
+                  style={{ animationDelay: `${220 + i * 70}ms` }}
+                >
+                  {ch === ' ' ? ' ' : ch}
+                </span>
+              ))}
+            </span>
+          </h1>
+        </div>
+
         <p className="mx-auto mt-4 max-w-md text-balance text-sm text-white/55 md:text-base">
           Flip pairs. Match all eight constellations. Beat your best time.
         </p>

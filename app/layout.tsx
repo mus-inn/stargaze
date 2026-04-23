@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Stargaze — memory match',
+  title: 'stargate Memory',
   description: 'A tiny space-themed memory match game. Flip pairs, match all eight constellations, beat your best time.',
   openGraph: {
-    title: 'Stargaze',
+    title: 'stargate Memory',
     description: 'A tiny space-themed memory match game.',
   },
 };
