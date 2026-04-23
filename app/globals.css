@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://rsms.me/inter/inter.css');
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  min-height: 100dvh;
+}
+
+body {
+  background:
+    radial-gradient(1200px 800px at 18% -8%, rgba(139, 92, 246, 0.22), transparent 58%),
+    radial-gradient(900px 600px at 92% 4%, rgba(236, 72, 153, 0.18), transparent 60%),
+    radial-gradient(700px 500px at 50% 102%, rgba(59, 130, 246, 0.22), transparent 60%),
+    #060614;
+  background-attachment: fixed;
+  letter-spacing: -0.005em;
+}
+
+/* Soft twinkling dots behind the grid */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 15% 22%, rgba(255, 255, 255, 0.4), transparent 50%),
+    radial-gradient(1.5px 1.5px at 62% 34%, rgba(255, 255, 255, 0.3), transparent 50%),
+    radial-gradient(1.5px 1.5px at 78% 18%, rgba(255, 255, 255, 0.35), transparent 50%),
+    radial-gradient(2px 2px at 30% 80%, rgba(255, 255, 255, 0.25), transparent 50%),
+    radial-gradient(1px 1px at 88% 75%, rgba(255, 255, 255, 0.3), transparent 50%),
+    radial-gradient(1.5px 1.5px at 50% 50%, rgba(255, 255, 255, 0.2), transparent 50%);
+  pointer-events: none;
+  opacity: 0.7;
+  z-index: -1;
+}
+
+/* --- Card flip --- */
+
+.card-wrap {
+  perspective: 1000px;
+}
+
+.card-inner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  transition: transform 560ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  transform-style: preserve-3d;
+}
+
+.card-inner[data-flipped='true'] {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 1rem;
+  overflow: hidden;
+  user-select: none;
+}
+
+.card-face--back {
+  background:
+    radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.14), transparent 40%),
+    linear-gradient(135deg, #1e1b4b 0%, #3b2477 40%, #1e1b4b 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 10px 30px -12px rgba(0, 0, 0, 0.6);
+}
+
+.card-face--front {
+  transform: rotateY(180deg);
+  background: linear-gradient(135deg, #111827, #0a0a20);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 12px 32px -14px rgba(0, 0, 0, 0.7);
+}
+
+.card-face--front[data-matched='true'] {
+  background: linear-gradient(135deg, #0b3a24, #0a0a20);
+  border-color: rgba(134, 239, 172, 0.45);
+  box-shadow:
+    inset 0 0 0 1px rgba(134, 239, 172, 0.22),
+    0 0 32px -4px rgba(74, 222, 128, 0.28);
+}
+
+.card-emoji {
+  font-size: clamp(2rem, 7vw, 3.25rem);
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
+  transform: translateZ(10px);
+}
+
+.card-sparkle {
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.35);
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.35);
+}
+
+/* --- Accents --- */
+
+.glow-text {
+  background: linear-gradient(92deg, #a78bfa 0%, #f0abfc 50%, #7dd3fc 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 7s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% { background-position: 0% 0; }
+  50% { background-position: 100% 0; }
+}
+
+.pop-in {
+  animation: pop-in 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0.82); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.fade-up {
+  animation: fade-up 380ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes fade-up {
+  0% { transform: translateY(8px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
