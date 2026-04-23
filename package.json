@@ -9,6 +9,8 @@
     "start": "next start"
   },
   "dependencies": {
+    "@dotworld/shadow-canary-core": "^0.2.0",
+    "@vercel/edge-config": "^1.4.3",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

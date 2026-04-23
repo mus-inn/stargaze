@@ -1,0 +1,9 @@
+{
+  "version": "0.2.0",
+  "vercelProjectId": "prj_TsutyriinBuqT6Ygltsp3B9MeRFX",
+  "vercelOrgId": "team_Mq86XTsECYNMPyIkGrQ6onNQ",
+  "edgeConfigId": "ecfg_rwltejegfu7gwfdwy7bye4dgm2ro",
+  "configKey": "shadow-configuration-stargaze",
+  "adminPath": "/admin",
+  "sloPath": "/api/slo"
+}
