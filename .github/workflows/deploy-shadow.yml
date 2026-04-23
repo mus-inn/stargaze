@@ -13,7 +13,11 @@ jobs:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       EDGE_CONFIG_ID: ${{ secrets.VERCEL_EDGE_CONFIG_ID }}
-      SHADOW_CANARY_KEY: ${{ secrets.SHADOW_CANARY_KEY || 'shadow-configuration' }}
+      # @dotworld/shadow-canary-core >=0.3.0 derives the Edge Config key from
+      # VERCEL_GIT_REPO_SLUG at runtime as `shadow-<slug>-canary`. Workflows
+      # must write to the same key — mirror the derivation from the GitHub
+      # repo name (which matches the Vercel slug on standard setups).
+      SHADOW_CANARY_KEY: shadow-${{ github.event.repository.name }}-canary
     steps:
       - uses: actions/checkout@v4
 
@@ -35,7 +39,7 @@ jobs:
           echo "url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
           echo "New shadow deploy: $DEPLOY_URL"
 
-      - name: Merge new shadow URL into shadow config (honors SHADOW_CANARY_KEY)
+      - name: Merge new shadow URL into shadow config
         run: |
           CURRENT=$(curl -sf \
             -H "Authorization: Bearer $VERCEL_TOKEN" \

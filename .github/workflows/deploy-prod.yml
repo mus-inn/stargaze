@@ -30,7 +30,10 @@ jobs:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       EDGE_CONFIG_ID: ${{ secrets.VERCEL_EDGE_CONFIG_ID }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      SHADOW_CANARY_KEY: ${{ secrets.SHADOW_CANARY_KEY || 'shadow-configuration' }}
+      # @dotworld/shadow-canary-core >=0.3.0 derives the Edge Config key from
+      # VERCEL_GIT_REPO_SLUG at runtime as `shadow-<slug>-canary`. Mirror that
+      # here from the GitHub repo name.
+      SHADOW_CANARY_KEY: shadow-${{ github.event.repository.name }}-canary
       SKIP_CANARY: ${{ contains(github.event.head_commit.message, '[skip-canary]') || inputs.skip_canary == true }}
       KEEP_CANARY: ${{ contains(github.event.head_commit.message, '[keep-canary]') || inputs.keep_canary == true }}
     steps:
