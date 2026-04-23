@@ -1,6 +1,8 @@
+import type { CSSProperties } from 'react';
 import Game from '@/components/Game';
 
 const TITLE = 'stargate Memory';
+const BRANCH = process.env.VERCEL_GIT_COMMIT_REF ?? 'local';
 
 export default function Home() {
   return (
@@ -13,10 +15,26 @@ export default function Home() {
 
         <div className="stargate-title">
           <span className="stargate-portal" aria-hidden="true">
-            <span className="ring ring-1"></span>
-            <span className="ring ring-2"></span>
-            <span className="ring ring-3"></span>
-            <span className="ring-core"></span>
+            <span className="sg-outer-ring"></span>
+            <span className="sg-inner-ring"></span>
+            <span className="sg-chevrons">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <span
+                  key={i}
+                  className="sg-chevron"
+                  style={{ '--i': i } as CSSProperties}
+                >
+                  <span className="sg-chevron-shape">
+                    <span className="sg-chevron-led"></span>
+                  </span>
+                </span>
+              ))}
+            </span>
+            <span className="sg-event-horizon">
+              <span className="sg-vortex"></span>
+              <span className="sg-ripples"></span>
+            </span>
+            <span className="sg-kawoosh"></span>
           </span>
 
           <h1 className="glow-text relative text-5xl font-semibold tracking-tight md:text-6xl">
@@ -46,7 +64,8 @@ export default function Home() {
 
       <footer className="mt-10 text-center text-[11px] text-white/40">
         <p>
-          Built with <span className="text-white/60">Next.js 15</span> · Deployed on Vercel
+          Built with <span className="text-white/60">Next.js 15</span> · Deployed on Vercel ·{' '}
+          <span className="font-mono text-white/60">{BRANCH}</span>
         </p>
       </footer>
     </main>
