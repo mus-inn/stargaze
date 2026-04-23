@@ -125,7 +125,7 @@ body::before {
   50% { background-position: 100% 0; }
 }
 
-/* --- Stargate title animation --- */
+/* --- Stargate portal (animated gate) --- */
 
 .stargate-title {
   position: relative;
@@ -137,87 +137,283 @@ body::before {
 .stargate-portal {
   position: absolute;
   inset: 50% auto auto 50%;
-  width: clamp(220px, 42vw, 360px);
-  height: clamp(220px, 42vw, 360px);
+  width: clamp(260px, 48vw, 420px);
+  height: clamp(260px, 48vw, 420px);
   translate: -50% -50%;
   pointer-events: none;
   z-index: -1;
   opacity: 0;
-  animation: portal-in 1400ms cubic-bezier(0.22, 0.61, 0.36, 1) 120ms forwards;
+  transform: scale(0.72);
+  animation: sg-fade-in 1400ms cubic-bezier(0.22, 0.61, 0.36, 1) 120ms forwards;
 }
 
-.stargate-portal .ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 1px solid transparent;
-  background:
-    conic-gradient(
-      from 0deg,
-      rgba(167, 139, 250, 0) 0%,
-      rgba(167, 139, 250, 0.55) 18%,
-      rgba(240, 171, 252, 0.7) 38%,
-      rgba(125, 211, 252, 0.55) 62%,
-      rgba(167, 139, 250, 0) 82%,
-      rgba(167, 139, 250, 0) 100%
-    ) border-box;
-  -webkit-mask:
-    linear-gradient(#000 0 0) padding-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  filter: drop-shadow(0 0 12px rgba(167, 139, 250, 0.35));
-}
-
-.stargate-portal .ring-1 {
-  border-width: 2px;
-  animation: portal-spin 9s linear infinite;
-}
-
-.stargate-portal .ring-2 {
-  inset: 10%;
-  border-width: 1.5px;
-  opacity: 0.8;
-  animation: portal-spin-rev 13s linear infinite;
-}
-
-.stargate-portal .ring-3 {
-  inset: 22%;
-  border-width: 1px;
-  opacity: 0.55;
-  animation: portal-spin 18s linear infinite;
-}
-
-.stargate-portal .ring-core {
-  position: absolute;
-  inset: 32%;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 50%,
-      rgba(240, 171, 252, 0.28) 0%,
-      rgba(125, 211, 252, 0.18) 40%,
-      rgba(6, 6, 20, 0) 70%);
-  filter: blur(6px);
-  animation: portal-pulse 4.5s ease-in-out infinite;
-}
-
-@keyframes portal-in {
-  0%   { opacity: 0; transform: scale(0.6); }
-  55%  { opacity: 1; transform: scale(1.05); }
+@keyframes sg-fade-in {
+  0%   { opacity: 0; transform: scale(0.72); }
+  55%  { opacity: 1; transform: scale(1.04); }
   100% { opacity: 1; transform: scale(1); }
 }
 
-@keyframes portal-spin {
+/* Outer stone body of the gate */
+.sg-outer-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 50% 50%,
+      transparent 55%,
+      rgba(130, 110, 170, 0.18) 58%,
+      rgba(95, 80, 135, 0.55) 66%,
+      rgba(65, 55, 100, 0.7) 78%,
+      rgba(35, 25, 60, 0.35) 90%,
+      transparent 96%
+    );
+  box-shadow:
+    inset 0 0 40px rgba(167, 139, 250, 0.22),
+    0 0 48px rgba(125, 211, 252, 0.18);
+}
+
+.sg-outer-ring::before,
+.sg-outer-ring::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.sg-outer-ring::before {
+  inset: 7%;
+  border: 1.5px solid rgba(210, 195, 245, 0.32);
+  box-shadow: inset 0 0 10px rgba(125, 211, 252, 0.12);
+}
+
+.sg-outer-ring::after {
+  inset: 17%;
+  border: 1px solid rgba(220, 205, 255, 0.2);
+}
+
+/* Inner symbol ring that rotates */
+.sg-inner-ring {
+  position: absolute;
+  inset: 8.5%;
+  border-radius: 50%;
+  background:
+    repeating-conic-gradient(
+      from 0deg,
+      rgba(235, 220, 255, 0.42) 0deg 0.8deg,
+      transparent 0.8deg 5deg,
+      rgba(180, 160, 230, 0.52) 5deg 6deg,
+      transparent 6deg 10deg
+    );
+  -webkit-mask: radial-gradient(circle, transparent 72%, #000 77%, #000 88%, transparent 92%);
+          mask: radial-gradient(circle, transparent 72%, #000 77%, #000 88%, transparent 92%);
+  animation: sg-inner-spin 28s linear infinite;
+}
+
+@keyframes sg-inner-spin {
   to { transform: rotate(360deg); }
 }
 
-@keyframes portal-spin-rev {
+/* Chevrons (9 locking clamps around the ring) */
+.sg-chevrons {
+  position: absolute;
+  inset: 0;
+}
+
+.sg-chevron {
+  position: absolute;
+  inset: 0;
+  transform: rotate(calc(var(--i) * 40deg));
+}
+
+.sg-chevron-shape {
+  position: absolute;
+  top: -1.5%;
+  left: 50%;
+  width: 13%;
+  aspect-ratio: 1.1;
+  translate: -50% 0;
+  background:
+    linear-gradient(180deg,
+      rgba(175, 155, 210, 0.65) 0%,
+      rgba(100, 85, 145, 0.9) 45%,
+      rgba(55, 45, 90, 0.95) 100%);
+  clip-path: polygon(10% 0%, 90% 0%, 98% 32%, 55% 100%, 45% 100%, 2% 32%);
+  border-top: 1px solid rgba(225, 210, 255, 0.55);
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+
+.sg-chevron-led {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  width: 36%;
+  aspect-ratio: 1;
+  translate: -50% 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 42%,
+      #fff6de 0%,
+      #ffb26a 22%,
+      #ff5a1c 52%,
+      #8a1a00 80%,
+      transparent 100%);
+  box-shadow:
+    0 0 10px rgba(255, 160, 70, 0.95),
+    0 0 22px rgba(255, 100, 40, 0.75),
+    0 0 44px rgba(255, 60, 10, 0.45);
+  opacity: 0;
+  transform: scale(0.35);
+  animation:
+    sg-chevron-lock 640ms cubic-bezier(0.22, 0.61, 0.36, 1)
+      calc(420ms + var(--i) * 340ms) forwards,
+    sg-chevron-idle 4.8s ease-in-out
+      calc(4200ms + var(--i) * 200ms) infinite;
+}
+
+@keyframes sg-chevron-lock {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+    filter: blur(6px) brightness(1.2);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.6);
+    filter: blur(1px) brightness(2);
+  }
+  100% {
+    opacity: 0.92;
+    transform: scale(1);
+    filter: blur(0) brightness(1);
+  }
+}
+
+@keyframes sg-chevron-idle {
+  0%, 100% { opacity: 0.78; transform: scale(0.95); }
+  50%      { opacity: 1;    transform: scale(1.06); }
+}
+
+/* Event horizon (activated wormhole) */
+.sg-event-horizon {
+  position: absolute;
+  inset: 19%;
+  border-radius: 50%;
+  overflow: hidden;
+  opacity: 0;
+  transform: scale(0.5);
+  animation: sg-horizon-in 1400ms cubic-bezier(0.22, 0.61, 0.36, 1) 3700ms forwards;
+  box-shadow:
+    inset 0 0 28px rgba(180, 220, 255, 0.55),
+    inset 0 0 54px rgba(50, 120, 220, 0.6),
+    0 0 40px rgba(100, 180, 255, 0.55);
+}
+
+@keyframes sg-horizon-in {
+  0%   { opacity: 0; transform: scale(0.5); }
+  60%  { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 0.95; transform: scale(1); }
+}
+
+.sg-vortex {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(225, 240, 255, 0.95) 0%,
+      rgba(140, 195, 250, 0.85) 22%,
+      rgba(60, 130, 220, 0.75) 50%,
+      rgba(20, 60, 150, 0.85) 80%,
+      rgba(5, 20, 70, 0.95) 100%);
+  animation: sg-vortex-spin 18s linear infinite;
+}
+
+.sg-vortex::before,
+.sg-vortex::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.sg-vortex::before {
+  background:
+    conic-gradient(from 0deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.28) 18%,
+      transparent 35%,
+      rgba(180, 220, 255, 0.3) 55%,
+      transparent 72%,
+      rgba(125, 200, 255, 0.22) 88%,
+      transparent 100%);
+  mix-blend-mode: screen;
+  animation: sg-vortex-spin 9s linear infinite;
+}
+
+.sg-vortex::after {
+  background:
+    conic-gradient(from 180deg,
+      transparent 0%,
+      rgba(200, 230, 255, 0.24) 25%,
+      transparent 50%,
+      rgba(90, 170, 240, 0.24) 75%,
+      transparent 100%);
+  mix-blend-mode: screen;
+  animation: sg-vortex-spin-rev 13s linear infinite;
+}
+
+@keyframes sg-vortex-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes sg-vortex-spin-rev {
   to { transform: rotate(-360deg); }
 }
 
-@keyframes portal-pulse {
-  0%, 100% { opacity: 0.75; transform: scale(1); }
-  50%      { opacity: 1;    transform: scale(1.08); }
+.sg-ripples {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      rgba(255, 255, 255, 0.08) 0,
+      rgba(255, 255, 255, 0.08) 2px,
+      transparent 2px,
+      transparent 11px
+    );
+  mix-blend-mode: screen;
+  animation: sg-ripple-pulse 3.6s ease-in-out infinite;
+}
+
+@keyframes sg-ripple-pulse {
+  0%, 100% { transform: scale(1);    opacity: 0.55; }
+  50%      { transform: scale(1.06); opacity: 0.95; }
+}
+
+/* Kawoosh flash at activation */
+.sg-kawoosh {
+  position: absolute;
+  inset: 19%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(232, 246, 255, 1) 0%,
+      rgba(140, 200, 255, 0.85) 35%,
+      rgba(60, 140, 240, 0.4) 65%,
+      transparent 100%);
+  opacity: 0;
+  transform: scale(0.1);
+  filter: blur(10px);
+  animation: sg-kawoosh 1600ms cubic-bezier(0.22, 0.61, 0.36, 1) 3500ms forwards;
+}
+
+@keyframes sg-kawoosh {
+  0%   { opacity: 0;   transform: scale(0.1); filter: blur(20px); }
+  30%  { opacity: 1;   transform: scale(1.65); filter: blur(6px); }
+  60%  { opacity: 0.7; transform: scale(1.1); filter: blur(10px); }
+  100% { opacity: 0;   transform: scale(1);   filter: blur(14px); }
 }
 
 .title-letter {
@@ -252,14 +448,23 @@ body::before {
 
 @media (prefers-reduced-motion: reduce) {
   .stargate-portal,
-  .stargate-portal .ring,
-  .stargate-portal .ring-core,
+  .sg-outer-ring,
+  .sg-inner-ring,
+  .sg-chevron,
+  .sg-chevron-led,
+  .sg-event-horizon,
+  .sg-vortex,
+  .sg-ripples,
+  .sg-kawoosh,
   .title-letter,
   .glow-text {
     animation: none !important;
   }
   .title-letter { opacity: 1; transform: none; filter: none; }
-  .stargate-portal { opacity: 0.6; }
+  .stargate-portal { opacity: 0.85; transform: none; }
+  .sg-event-horizon { opacity: 0.9; transform: none; }
+  .sg-chevron-led { opacity: 0.9; transform: scale(1) translate(-50%, 0); }
+  .sg-kawoosh { display: none; }
 }
 
 .pop-in {
