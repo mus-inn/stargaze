@@ -129,16 +129,24 @@ body::before {
 
 .stargate-title {
   position: relative;
-  display: inline-block;
-  padding: 0.25rem 1.5rem;
+  /* Block so it always stacks below the "memory match" chip instead of
+     sharing a line with it as inline content on wide viewports. */
+  display: block;
+  /* Vertical padding reserves layout space for the circular portal so its
+     chevrons don't bleed into the chip above or the subtitle/stats below.
+     Horizontal padding keeps the outer ring clear of wide titles. */
+  padding: 5.5rem 1.5rem;
   isolation: isolate;
 }
 
 .stargate-portal {
   position: absolute;
   inset: 50% auto auto 50%;
-  width: clamp(260px, 48vw, 420px);
-  height: clamp(260px, 48vw, 420px);
+  /* Sized to frame (not dwarf) the title line: diameter ~= 2× title height,
+     so the ring surrounds the text without extending far beyond the padded
+     box reserved in .stargate-title. */
+  width: clamp(180px, 22vw, 240px);
+  height: clamp(180px, 22vw, 240px);
   translate: -50% -50%;
   pointer-events: none;
   z-index: -1;
@@ -418,6 +426,11 @@ body::before {
 
 .title-letter {
   display: inline-block;
+  position: relative;
+  /* Keep the title above the portal's event horizon + vortex, which are
+     opaque children of .stargate-portal and would otherwise paint over the
+     text since they share the same stacking context. */
+  z-index: 1;
   opacity: 0;
   transform: translateY(0.35em) scale(0.85);
   filter: blur(8px) brightness(1.6);
