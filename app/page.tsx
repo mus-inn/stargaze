@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import Game from '@/components/Game';
 
 const TITLE = 'stargate Memory';
+const BRANCH = process.env.VERCEL_GIT_COMMIT_REF ?? 'local';
 
 export default function Home() {
   return (
@@ -63,7 +64,8 @@ export default function Home() {
 
       <footer className="mt-10 text-center text-[11px] text-white/40">
         <p>
-          Built with <span className="text-white/60">Next.js 15</span> · Deployed on Vercel
+          Built with <span className="text-white/60">Next.js 15</span> · Deployed on Vercel ·{' '}
+          <span className="font-mono text-white/60">{BRANCH}</span>
         </p>
       </footer>
     </main>
