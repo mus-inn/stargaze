@@ -61,7 +61,7 @@ jobs:
           CURRENT=$(curl -sf \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v1/edge-config/$EDGE_CONFIG_ID/items?teamId=$VERCEL_ORG_ID" \
-            | jq '[.[] | select(.key == "shadow-configuration")] | .[0].value // {}' \
+            | jq '[.[] | select(.key == "shadow-configuration-stargaze")] | .[0].value // {}' \
             || echo '{}')
           if [ -z "$CURRENT" ] || [ "$CURRENT" = "null" ]; then CURRENT='{}'; fi
 
@@ -119,7 +119,7 @@ jobs:
             "https://api.vercel.com/v1/edge-config/$EDGE_CONFIG_ID/items?teamId=$VERCEL_ORG_ID" \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "$(jq -n --argjson v "$MERGED" '{items:[{operation:"upsert",key:"shadow-configuration",value:$v}]}')"
+            -d "$(jq -n --argjson v "$MERGED" '{items:[{operation:"upsert",key:"shadow-configuration-stargaze",value:$v}]}')"
 
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           echo "pct=$(echo "$MERGED" | jq -r '.trafficProdCanaryPercent')" >> "$GITHUB_OUTPUT"
