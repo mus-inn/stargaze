@@ -13,10 +13,14 @@ jobs:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       EDGE_CONFIG_ID: ${{ secrets.VERCEL_EDGE_CONFIG_ID }}
-      # @dotworld/shadow-canary-core >=0.3.0 derives the Edge Config key from
-      # VERCEL_GIT_REPO_SLUG at runtime as `shadow-<slug>-canary`. Workflows
-      # must write to the same key — mirror the derivation from the GitHub
-      # repo name (which matches the Vercel slug on standard setups).
+      # Key is deterministic: derived from the repo slug on both sides.
+      # Middleware reads VERCEL_GIT_REPO_SLUG (auto-injected by Vercel);
+      # this workflow uses github.event.repository.name. Same value, same
+      # key — no secret to drift out of sync.
+      #
+      # NOTE: github.event.repository.name is populated for push/dispatch
+      # events but NOT for schedule events — see canary-ramp.yml for the
+      # schedule-safe shell variant if you ever add `on: schedule:` here.
       SHADOW_CANARY_KEY: shadow-${{ github.event.repository.name }}-canary
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +56,12 @@ jobs:
             --arg shadowUrl "${{ steps.deploy.outputs.url }}" \
             '. + {
               deploymentDomainProd: (.deploymentDomainProd // $shadowUrl),
+              deploymentDomainShadowPrevious: (
+                if (.deploymentDomainShadow // "") != "" and .deploymentDomainShadow != $shadowUrl
+                then .deploymentDomainShadow
+                else (.deploymentDomainShadowPrevious // null)
+                end
+              ),
               deploymentDomainShadow: $shadowUrl,
               trafficShadowPercent: (.trafficShadowPercent // 1),
               trafficProdCanaryPercent: (.trafficProdCanaryPercent // 100),
