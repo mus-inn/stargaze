@@ -31,6 +31,14 @@ jobs:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       EDGE_CONFIG_ID: ${{ secrets.VERCEL_EDGE_CONFIG_ID }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      # Vercel Deployment Protection blocks raw *.vercel.app deploy URLs with
+      # HTTP 401 "Authentication Required" by default. The SLO check curls the
+      # raw prod deploy URL (needed for per-deployment canary routing), so
+      # without this bypass every SLO check fails and the canary rolls back to
+      # 0% every 15 min. Generate via Vercel → Project Settings → Deployment
+      # Protection → Protection Bypass for Automation.
+      # Local patch — not yet upstream in shadow-canary-templates (PR #16 style).
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
       # GitHub injects GITHUB_REPOSITORY ("owner/repo") into every step by
       # default; we restate it here so the derivation still works if someone
       # later scopes env at the step level or containerizes the job.
@@ -100,13 +108,26 @@ jobs:
           URL='${{ steps.state.outputs.prod_url }}/api/slo'
           case "$URL" in http*) ;; *) URL="https://$URL" ;; esac
 
+          # Send the Vercel Deployment Protection bypass header when the secret
+          # is present. Without it, raw *.vercel.app URLs return 401 HTML and
+          # every SLO check fails. If the secret is unset (e.g. protection is
+          # disabled), the curl just omits the header and proceeds normally.
+          # Local patch — not yet upstream in shadow-canary-templates.
+          BYPASS_ARGS=()
+          if [ -n "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
+            BYPASS_ARGS=(-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET")
+          fi
+
           OK=0
           LAST_BODY=""
           for i in 1 2; do
-            CODE=$(curl -s -o /tmp/slo_body.txt -w "%{http_code}" --max-time 10 "$URL" || echo "000")
+            CODE=$(curl -s -o /tmp/slo_body.txt -w "%{http_code}" --max-time 10 "${BYPASS_ARGS[@]}" "$URL" || echo "000")
             BODY=$(cat /tmp/slo_body.txt 2>/dev/null || true)
-            # Trim to 80 chars, strip newlines/CR for YAML-safe single-line output
-            BODY_TRIMMED="$(echo "${BODY:0:80}" | tr '\n\r' '  ')"
+            # Trim to 500 chars, strip newlines/CR for YAML-safe single-line output.
+            # 500 gives enough room to show a full JSON payload or a truncated
+            # stack trace without blowing the Edge Config 8 KB per-item cap
+            # (10 entries × 500 B ≈ 5 KB, plus the rest of ShadowConfig).
+            BODY_TRIMMED="$(echo "${BODY:0:500}" | tr '\n\r' '  ')"
             echo "SLO check $i → HTTP $CODE :: $BODY_TRIMMED"
             if [ "$CODE" = "200" ]; then OK=$((OK + 1)); fi
             echo "code$i=$CODE" >> "$GITHUB_OUTPUT"
@@ -203,15 +224,26 @@ jobs:
         # Runs on both pass and fail paths (not on skip) so the admin UI has a
         # trail of recent checks to diagnose "why isn't the canary moving?".
         if: steps.gate.outputs.skip == '0'
+        env:
+          # Pass step outputs through env instead of ${{ … }} substitution in
+          # the shell script — GitHub substitutes ${{ }} as raw text, so a body
+          # excerpt like `{"ok":true,...` breaks the surrounding "…" shell
+          # string with its embedded quotes. env vars are properly escaped and
+          # available as $SLO_* below.
+          # Local patch — not yet upstream in shadow-canary-templates (PR #17 style).
+          SLO_OK: ${{ steps.slo.outputs.ok }}
+          SLO_CODE1: ${{ steps.slo.outputs.code1 }}
+          SLO_CODE2: ${{ steps.slo.outputs.code2 }}
+          SLO_BODY_EXCERPT: ${{ steps.slo.outputs.body_excerpt }}
+          SLO_PCT_BEFORE: ${{ steps.state.outputs.pct }}
+          SLO_PCT_AFTER: ${{ steps.compute.outputs.next }}
         run: |
-          OK='${{ steps.slo.outputs.ok }}'
-          PCT_BEFORE='${{ steps.state.outputs.pct }}'
-          if [ "$OK" = "1" ]; then
-            PCT_AFTER='${{ steps.compute.outputs.next }}'
+          if [ "$SLO_OK" = "1" ]; then
+            PCT_AFTER="$SLO_PCT_AFTER"
           else
             PCT_AFTER="0"
           fi
-          OK_BOOL=$( [ "$OK" = "1" ] && echo true || echo false )
+          OK_BOOL=$( [ "$SLO_OK" = "1" ] && echo true || echo false )
 
           # Re-read the current Edge Config value because the bump/rollback
           # step just mutated it — we want to merge sloChecks on top of the
@@ -224,10 +256,10 @@ jobs:
           ENTRY=$(jq -n \
             --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --argjson ok "$OK_BOOL" \
-            --argjson code1 "${{ steps.slo.outputs.code1 }}" \
-            --argjson code2 "${{ steps.slo.outputs.code2 }}" \
-            --arg body "${{ steps.slo.outputs.body_excerpt }}" \
-            --argjson pctBefore "$PCT_BEFORE" \
+            --argjson code1 "$SLO_CODE1" \
+            --argjson code2 "$SLO_CODE2" \
+            --arg body "$SLO_BODY_EXCERPT" \
+            --argjson pctBefore "$SLO_PCT_BEFORE" \
             --argjson pctAfter "$PCT_AFTER" \
             '{ts: $ts, ok: $ok, codes: [$code1, $code2], bodyExcerpt: $body, pctBefore: $pctBefore, pctAfter: $pctAfter}')
 
