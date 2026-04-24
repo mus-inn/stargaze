@@ -31,6 +31,13 @@ jobs:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       EDGE_CONFIG_ID: ${{ secrets.VERCEL_EDGE_CONFIG_ID }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      # Vercel Deployment Protection blocks raw *.vercel.app deploy URLs with
+      # HTTP 401 "Authentication Required" by default. The SLO check curls the
+      # raw prod deploy URL (needed for per-deployment canary routing), so
+      # without this bypass every SLO check fails and the canary rolls back to
+      # 0% every 15 min. Generate via Vercel → Project Settings → Deployment
+      # Protection → Protection Bypass for Automation.
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
       # GitHub injects GITHUB_REPOSITORY ("owner/repo") into every step by
       # default; we restate it here so the derivation still works if someone
       # later scopes env at the step level or containerizes the job.
@@ -100,10 +107,19 @@ jobs:
           URL='${{ steps.state.outputs.prod_url }}/api/slo'
           case "$URL" in http*) ;; *) URL="https://$URL" ;; esac
 
+          # Send the Vercel Deployment Protection bypass header when the secret
+          # is present. Without it, raw *.vercel.app URLs return 401 HTML and
+          # every SLO check fails. If the secret is unset (e.g. protection is
+          # disabled), the curl just omits the header and proceeds normally.
+          BYPASS_ARGS=()
+          if [ -n "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
+            BYPASS_ARGS=(-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET")
+          fi
+
           OK=0
           LAST_BODY=""
           for i in 1 2; do
-            CODE=$(curl -s -o /tmp/slo_body.txt -w "%{http_code}" --max-time 10 "$URL" || echo "000")
+            CODE=$(curl -s -o /tmp/slo_body.txt -w "%{http_code}" --max-time 10 "${BYPASS_ARGS[@]}" "$URL" || echo "000")
             BODY=$(cat /tmp/slo_body.txt 2>/dev/null || true)
             # Trim to 80 chars, strip newlines/CR for YAML-safe single-line output
             BODY_TRIMMED="$(echo "${BODY:0:80}" | tr '\n\r' '  ')"
