@@ -14,6 +14,21 @@ type Props = {
   };
 };
 
+type BucketInfo = {
+  url: string;
+  sha: string | null;
+  ref: string | null;
+  message: string | null;
+  createdAt: number | null;
+  state: string | null;
+} | null;
+
+type BucketInfoMap = {
+  shadow: BucketInfo;
+  prodNew: BucketInfo;
+  prodPrevious: BucketInfo;
+};
+
 type Status =
   | 'stable'
   | 'starting'
@@ -26,7 +41,8 @@ type ModalState =
   | null
   | { kind: 'cancel' }
   | { kind: 'promote' }
-  | { kind: 'rollback'; deploy: Deployment };
+  | { kind: 'rollback'; deploy: Deployment }
+  | { kind: 'rollback-shadow' };
 
 function deriveStatus(cfg: ShadowConfig | null): Status {
   if (!cfg) return 'unknown';
@@ -95,6 +111,7 @@ function phaseLabel(hour: number): string {
 export function AdminDashboard({ initial }: Props) {
   const [config, setConfig] = useState(initial.config);
   const [deployments, setDeployments] = useState(initial.deployments);
+  const [bucketInfo, setBucketInfo] = useState<BucketInfoMap | null>(null);
   const [error, setError] = useState(initial.error);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
@@ -104,9 +121,10 @@ export function AdminDashboard({ initial }: Props) {
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [stateRes, deployRes] = await Promise.all([
+      const [stateRes, deployRes, bucketRes] = await Promise.all([
         fetch('/api/admin/state', { cache: 'no-store' }),
         fetch('/api/admin/deployments', { cache: 'no-store' }),
+        fetch('/api/admin/bucket-info', { cache: 'no-store' }),
       ]);
       if (stateRes.ok) {
         const { config: c } = await stateRes.json();
@@ -115,6 +133,9 @@ export function AdminDashboard({ initial }: Props) {
       if (deployRes.ok) {
         const { deployments: d } = await deployRes.json();
         setDeployments(d);
+      }
+      if (bucketRes.ok) {
+        setBucketInfo((await bucketRes.json()) as BucketInfoMap);
       }
       setError(null);
     } catch (e) {
@@ -237,6 +258,7 @@ export function AdminDashboard({ initial }: Props) {
                   color: '#f97316',
                   host: shortHost(shadowHost),
                   active: true,
+                  info: bucketInfo?.shadow,
                 },
                 ...(prevHost
                   ? [
@@ -246,6 +268,7 @@ export function AdminDashboard({ initial }: Props) {
                         color: '#6366f1',
                         host: shortHost(prevHost),
                         active: canaryLive,
+                        info: bucketInfo?.prodPrevious,
                       },
                     ]
                   : []),
@@ -258,6 +281,7 @@ export function AdminDashboard({ initial }: Props) {
                     status === 'ramping' ||
                     status === 'complete-sticky' ||
                     status === 'stable',
+                  info: bucketInfo?.prodNew,
                 },
               ]}
             />
@@ -332,17 +356,24 @@ export function AdminDashboard({ initial }: Props) {
           </div>
         </section>
 
+        {/* ---------- SLO check log ---------- */}
+        <SloLog checks={config?.sloChecks ?? []} now={now} />
+
         {/* ---------- Bucket forcer (dev test aid) ---------- */}
         <BucketForcer />
 
         {/* ---------- Shadow percent ---------- */}
         <ShadowPercentCard
           current={shadowPct}
+          previousShadowUrl={config?.deploymentDomainShadowPrevious}
+          currentShadowUrl={config?.deploymentDomainShadow}
           pending={pendingAction === 'shadow-percent'}
+          pendingRollback={pendingAction === 'rollback-shadow'}
           disabled={isBusy}
           onSave={(value) =>
             void run('shadow-percent', '/api/admin/shadow-percent', { value })
           }
+          onRollback={() => setModal({ kind: 'rollback-shadow' })}
         />
 
         {/* ---------- Phases diagram ---------- */}
@@ -488,6 +519,37 @@ export function AdminDashboard({ initial }: Props) {
           });
         }}
       />
+
+      <ConfirmModal
+        open={modal?.kind === 'rollback-shadow'}
+        tone="warn"
+        title="Rollback shadow au deploy précédent ?"
+        body={
+          <>
+            <p style={{ margin: '0 0 10px' }}>
+              Swap <code>deploymentDomainShadow</code> et{' '}
+              <code>deploymentDomainShadowPrevious</code>. Le shadow actuel (
+              <code>{shortHost(config?.deploymentDomainShadow)}</code>) passe
+              en &quot;previous&quot;, le précédent (
+              <code>{shortHost(config?.deploymentDomainShadowPrevious)}</code>)
+              reprend les {shadowPct}% de trafic shadow.
+            </p>
+            <p style={{ margin: 0 }}>
+              Pas de re-alias de domaine (contrairement au rollback prod) —
+              le shadow est adressé directement par URL dans le middleware.
+              Action instantanée et réversible (le swap est symétrique, tu
+              peux cliquer à nouveau pour revenir).
+            </p>
+          </>
+        }
+        confirmPhrase="rollback-shadow"
+        confirmLabel="Rollback shadow"
+        pending={pendingAction === 'rollback-shadow'}
+        onClose={() => setModal(null)}
+        onConfirm={() =>
+          void run('rollback-shadow', '/api/admin/rollback-shadow')
+        }
+      />
     </>
   );
 }
@@ -578,6 +640,7 @@ type Segment = {
   color: string;
   host: string;
   active: boolean;
+  info?: BucketInfo;
 };
 
 function TrafficBar({ segments }: { segments: Segment[] }) {
@@ -609,15 +672,111 @@ function TrafficBar({ segments }: { segments: Segment[] }) {
                 { ['--adm-seg-color' as string]: s.color } as React.CSSProperties
               }
             />
-            <span>
-              <span className="adm-legend-label">{s.label}</span>
-              <code className="adm-legend-host">{s.host}</code>
+            <span className="adm-legend-meta">
+              <span className="adm-legend-label-row">
+                <span className="adm-legend-label">{s.label}</span>
+                <code className="adm-legend-host">{s.host}</code>
+              </span>
+              {s.info && (s.info.ref || s.info.sha) && (
+                <span className="adm-legend-deploy">
+                  {s.info.ref && <code className="adm-legend-ref">{s.info.ref}</code>}
+                  {s.info.sha && (
+                    <code className="adm-legend-sha">@{s.info.sha.slice(0, 7)}</code>
+                  )}
+                  {s.info.message && (
+                    <span className="adm-legend-commit" title={s.info.message}>
+                      {s.info.message.split('\n')[0].slice(0, 60)}
+                      {(s.info.message.split('\n')[0].length > 60) && '…'}
+                    </span>
+                  )}
+                </span>
+              )}
             </span>
             <span className="adm-legend-value">{s.value.toFixed(1)}%</span>
           </li>
         ))}
       </ul>
     </div>
+  );
+}
+
+function SloLog({
+  checks,
+  now,
+}: {
+  checks: NonNullable<ShadowConfig['sloChecks']>;
+  now: number;
+}) {
+  return (
+    <section className="adm-card">
+      <div className="adm-card-header">
+        <h2 className="adm-card-title">Historique SLO (canary ramp)</h2>
+        <span
+          style={{
+            fontSize: '0.72rem',
+            opacity: 0.4,
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+          }}
+        >
+          {checks.length} / 10
+        </span>
+      </div>
+      <p className="adm-card-hint">
+        Les derniers checks exécutés par <code>canary-ramp.yml</code> (toutes
+        les 15 min quand un canary est en cours). Pratique pour comprendre
+        pourquoi le canary n&apos;avance pas : si la liste est vide, la cron
+        ne tourne pas ; si elle est pleine de{' '}
+        <span className="adm-slo-ok-inline">✓</span>, le ramp avance ; des{' '}
+        <span className="adm-slo-ko-inline">✗</span> indiquent un SLO qui a
+        rollback.
+      </p>
+      {checks.length === 0 ? (
+        <p style={{ opacity: 0.5, fontSize: '0.9rem', margin: 0 }}>
+          Aucun check SLO enregistré — vérifier que le workflow{' '}
+          <code>canary-ramp.yml</code> existe et tourne sur la default branch.
+        </p>
+      ) : (
+        <ul className="adm-slo-list" role="list">
+          {checks.map((c, i) => {
+            const ts = new Date(c.ts).getTime();
+            const ago = prettyTimeAgo(ts);
+            const fullTs = new Date(c.ts).toLocaleString('fr-FR');
+            const codes = c.codes.map((x) => x || '—').join(' / ');
+            const isRollback = !c.ok && c.pctAfter === 0;
+            return (
+              <li
+                key={`${c.ts}-${i}`}
+                className={`adm-slo-row ${c.ok ? 'adm-slo-row--ok' : 'adm-slo-row--ko'}`}
+              >
+                <span className="adm-slo-icon" aria-hidden="true">
+                  {c.ok ? '✓' : '✗'}
+                </span>
+                <span className="adm-slo-time" title={fullTs}>
+                  {ago}
+                </span>
+                <code className="adm-slo-codes">{codes}</code>
+                <span className="adm-slo-pct">
+                  {c.pctBefore}% →{' '}
+                  <strong>{c.pctAfter}%</strong>
+                  {isRollback && (
+                    <span className="adm-slo-badge">rollback</span>
+                  )}
+                </span>
+                {c.bodyExcerpt && (
+                  <code
+                    className="adm-slo-body"
+                    title={c.bodyExcerpt}
+                  >
+                    {c.bodyExcerpt}
+                  </code>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -659,14 +818,22 @@ function ActionBtn({
 
 function ShadowPercentCard({
   current,
+  previousShadowUrl,
+  currentShadowUrl,
   pending,
+  pendingRollback,
   disabled,
   onSave,
+  onRollback,
 }: {
   current: number;
+  previousShadowUrl?: string;
+  currentShadowUrl?: string;
   pending: boolean;
+  pendingRollback: boolean;
   disabled: boolean;
   onSave: (value: number) => void;
+  onRollback: () => void;
 }) {
   const [draft, setDraft] = useState<string>(String(current));
 
@@ -719,6 +886,40 @@ function ShadowPercentCard({
             0 – 100 uniquement
           </span>
         )}
+      </div>
+
+      <div className="adm-shadow-rollback">
+        <span className="adm-shadow-rollback-label">
+          Rollback shadow au deploy précédent
+        </span>
+        <span className="adm-shadow-rollback-urls">
+          {currentShadowUrl ? (
+            <>
+              actuel <code>{shortHost(currentShadowUrl)}</code>
+            </>
+          ) : (
+            <em style={{ opacity: 0.5 }}>aucun shadow actuel</em>
+          )}
+          {previousShadowUrl && (
+            <>
+              {' '}
+              · précédent <code>{shortHost(previousShadowUrl)}</code>
+            </>
+          )}
+        </span>
+        <button
+          type="button"
+          className={`adm-btn adm-btn--small${pendingRollback ? ' adm-btn--pending' : ''}`}
+          onClick={onRollback}
+          disabled={disabled || !previousShadowUrl}
+          title={
+            previousShadowUrl
+              ? `Swap shadow ↔ previous`
+              : 'Aucun deploy shadow précédent enregistré — le premier swap sera possible après le prochain push master.'
+          }
+        >
+          Rollback shadow
+        </button>
       </div>
     </section>
   );
