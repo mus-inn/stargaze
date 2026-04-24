@@ -219,15 +219,25 @@ jobs:
         # Runs on both pass and fail paths (not on skip) so the admin UI has a
         # trail of recent checks to diagnose "why isn't the canary moving?".
         if: steps.gate.outputs.skip == '0'
+        env:
+          # Pass step outputs through env instead of ${{ … }} substitution in
+          # the shell script — GitHub substitutes ${{ }} as raw text, so a body
+          # excerpt like `{"ok":true,...` breaks the surrounding "…" shell
+          # string with its embedded quotes. env vars are properly escaped and
+          # available as $SLO_* below.
+          SLO_OK: ${{ steps.slo.outputs.ok }}
+          SLO_CODE1: ${{ steps.slo.outputs.code1 }}
+          SLO_CODE2: ${{ steps.slo.outputs.code2 }}
+          SLO_BODY_EXCERPT: ${{ steps.slo.outputs.body_excerpt }}
+          SLO_PCT_BEFORE: ${{ steps.state.outputs.pct }}
+          SLO_PCT_AFTER: ${{ steps.compute.outputs.next }}
         run: |
-          OK='${{ steps.slo.outputs.ok }}'
-          PCT_BEFORE='${{ steps.state.outputs.pct }}'
-          if [ "$OK" = "1" ]; then
-            PCT_AFTER='${{ steps.compute.outputs.next }}'
+          if [ "$SLO_OK" = "1" ]; then
+            PCT_AFTER="$SLO_PCT_AFTER"
           else
             PCT_AFTER="0"
           fi
-          OK_BOOL=$( [ "$OK" = "1" ] && echo true || echo false )
+          OK_BOOL=$( [ "$SLO_OK" = "1" ] && echo true || echo false )
 
           # Re-read the current Edge Config value because the bump/rollback
           # step just mutated it — we want to merge sloChecks on top of the
@@ -240,10 +250,10 @@ jobs:
           ENTRY=$(jq -n \
             --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --argjson ok "$OK_BOOL" \
-            --argjson code1 "${{ steps.slo.outputs.code1 }}" \
-            --argjson code2 "${{ steps.slo.outputs.code2 }}" \
-            --arg body "${{ steps.slo.outputs.body_excerpt }}" \
-            --argjson pctBefore "$PCT_BEFORE" \
+            --argjson code1 "$SLO_CODE1" \
+            --argjson code2 "$SLO_CODE2" \
+            --arg body "$SLO_BODY_EXCERPT" \
+            --argjson pctBefore "$SLO_PCT_BEFORE" \
             --argjson pctAfter "$PCT_AFTER" \
             '{ts: $ts, ok: $ok, codes: [$code1, $code2], bodyExcerpt: $body, pctBefore: $pctBefore, pctAfter: $pctAfter}')
 
